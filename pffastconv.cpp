@@ -24,24 +24,6 @@
 #endif
 
 
-template <typename T>
-T *pffastconv_malloc(size_t nb_bytes)
-{
-  return pffft_aligned_malloc<T>(nb_bytes);
-}
-
-void pffastconv_free(void *p)
-{
-  pffft_aligned_free(p);
-}
-
-int pffastconv_simd_size()
-{
-  return pffft_simd_size();
-}
-
-
-
 struct PFFASTCONV_Setup
 {
   float * Xt;      /* input == x in time domain - copy for alignment */

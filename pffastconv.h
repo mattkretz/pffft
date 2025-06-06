@@ -153,10 +153,18 @@
   */
   int pffastconv_apply(PFFASTCONV_Setup * s, const float *input, int inputLen, float *output, int applyFlush);
 
-  void *pffastconv_malloc(size_t nb_bytes);
-  void pffastconv_free(void *);
+  template <typename T>
+    T *pffastconv_malloc(size_t nb_bytes)
+    { return pffft_aligned_malloc<T>(nb_bytes); }
+
+  inline void pffastconv_free(void *p)
+  { pffft_aligned_free(p); }
 
   /* return 4 or 1 wether support SSE/Altivec instructions was enabled when building pffft.c */
-  int pffastconv_simd_size();
+  inline int pffastconv_simd_size()
+  { return pffft_simd_size(); }
+
+
+
 
 #endif /* PFFASTCONV_H */

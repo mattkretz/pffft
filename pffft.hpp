@@ -35,21 +35,15 @@
 #include <limits>
 #include <cassert>
 
-namespace pffft {
-namespace detail {
-#if defined(PFFFT_ENABLE_FLOAT) || ( !defined(PFFFT_ENABLE_FLOAT) && !defined(PFFFT_ENABLE_DOUBLE) )
 #include "pffft.h"
-#endif
 #if defined(PFFFT_ENABLE_DOUBLE)
 #include "pffft_double.h"
 #endif
-}
-}
 
 namespace pffft {
 
 // enum { PFFFT_REAL, PFFFT_COMPLEX }
-typedef detail::pffft_transform_t TransformType;
+typedef pffft_transform_t TransformType;
 
 // define 'Scalar' and 'Complex' (in namespace pffft) with template Types<>
 // and other type specific helper functions
@@ -58,40 +52,40 @@ template<typename T> struct Types {};
 template<> struct Types<float>  {
   typedef float  Scalar;
   typedef std::complex<Scalar> Complex;
-  static int simd_size() { return detail::pffft_simd_size(); }
-  static const char * simd_arch() { return detail::pffft_simd_arch(); }
-  static int minFFtsize() { return pffft_min_fft_size(detail::PFFFT_REAL); }
-  static bool isValidSize(int N) { return pffft_is_valid_size(N, detail::PFFFT_REAL); }
-  static int nearestTransformSize(int N, bool higher) { return pffft_nearest_transform_size(N, detail::PFFFT_REAL, higher ? 1 : 0); }
+  static int simd_size() { return pffft_simd_size(); }
+  static const char * simd_arch() { return pffft_simd_arch(); }
+  static int minFFtsize() { return pffft_min_fft_size(PFFFT_REAL); }
+  static bool isValidSize(int N) { return pffft_is_valid_size(N, PFFFT_REAL); }
+  static int nearestTransformSize(int N, bool higher) { return pffft_nearest_transform_size(N, PFFFT_REAL, higher ? 1 : 0); }
 };
 template<> struct Types< std::complex<float> >  {
   typedef float  Scalar;
   typedef std::complex<float>  Complex;
-  static int simd_size() { return detail::pffft_simd_size(); }
-  static const char * simd_arch() { return detail::pffft_simd_arch(); }
-  static int minFFtsize() { return pffft_min_fft_size(detail::PFFFT_COMPLEX); }
-  static bool isValidSize(int N) { return pffft_is_valid_size(N, detail::PFFFT_COMPLEX); }
-  static int nearestTransformSize(int N, bool higher) { return pffft_nearest_transform_size(N, detail::PFFFT_COMPLEX, higher ? 1 : 0); }
+  static int simd_size() { return pffft_simd_size(); }
+  static const char * simd_arch() { return pffft_simd_arch(); }
+  static int minFFtsize() { return pffft_min_fft_size(PFFFT_COMPLEX); }
+  static bool isValidSize(int N) { return pffft_is_valid_size(N, PFFFT_COMPLEX); }
+  static int nearestTransformSize(int N, bool higher) { return pffft_nearest_transform_size(N, PFFFT_COMPLEX, higher ? 1 : 0); }
 };
 #endif
 #if defined(PFFFT_ENABLE_DOUBLE)
 template<> struct Types<double> {
   typedef double Scalar;
   typedef std::complex<Scalar> Complex;
-  static int simd_size() { return detail::pffftd_simd_size(); }
-  static const char * simd_arch() { return detail::pffftd_simd_arch(); }
-  static int minFFtsize() { return pffftd_min_fft_size(detail::PFFFT_REAL); }
-  static bool isValidSize(int N) { return pffftd_is_valid_size(N, detail::PFFFT_REAL); }
-  static int nearestTransformSize(int N, bool higher) { return pffftd_nearest_transform_size(N, detail::PFFFT_REAL, higher ? 1 : 0); }
+  static int simd_size() { return pffftd_simd_size(); }
+  static const char * simd_arch() { return pffftd_simd_arch(); }
+  static int minFFtsize() { return pffftd_min_fft_size(PFFFT_REAL); }
+  static bool isValidSize(int N) { return pffftd_is_valid_size(N, PFFFT_REAL); }
+  static int nearestTransformSize(int N, bool higher) { return pffftd_nearest_transform_size(N, PFFFT_REAL, higher ? 1 : 0); }
 };
 template<> struct Types< std::complex<double> > {
   typedef double Scalar;
   typedef std::complex<double> Complex;
-  static int simd_size() { return detail::pffftd_simd_size(); }
-  static const char * simd_arch() { return detail::pffftd_simd_arch(); }
-  static int minFFtsize() { return pffftd_min_fft_size(detail::PFFFT_COMPLEX); }
-  static bool isValidSize(int N) { return pffftd_is_valid_size(N, detail::PFFFT_COMPLEX); }
-  static int nearestTransformSize(int N, bool higher) { return pffftd_nearest_transform_size(N, detail::PFFFT_COMPLEX, higher ? 1 : 0); }
+  static int simd_size() { return pffftd_simd_size(); }
+  static const char * simd_arch() { return pffftd_simd_arch(); }
+  static int minFFtsize() { return pffftd_min_fft_size(PFFFT_COMPLEX); }
+  static bool isValidSize(int N) { return pffftd_is_valid_size(N, PFFFT_COMPLEX); }
+  static int nearestTransformSize(int N, bool higher) { return pffftd_nearest_transform_size(N, PFFFT_COMPLEX, higher ? 1 : 0); }
 };
 #endif
 
@@ -125,6 +119,9 @@ struct AlignedVector : public std::vector< T, PFAlloc<T> > {
 template<typename T>
 class Fft
 {
+  static_assert(std::is_same_v<T, float> or std::is_same_v<T, double>
+      or std::is_same_v<T, std::complex<float>> or std::is_same_v<T, std::complex<double>>);
+
 public:
 
   // define types value_type, Scalar and Complex
@@ -138,8 +135,8 @@ public:
   static bool isDoubleScalar() { return sizeof(Scalar) == sizeof(double); }
 
   // simple helper to determine next power of 2 - without inexact/rounding floating point operations
-  static int nextPowerOfTwo(int N) { return detail::pffft_next_power_of_two(N); }
-  static bool isPowerOfTwo(int N) { return detail::pffft_is_power_of_two(N) ? true : false; }
+  static int nextPowerOfTwo(int N) { return std::bit_ceil(unsigned(N)); }
+  static bool isPowerOfTwo(int N) { return std::has_single_bit(unsigned(N)); }
 
 
   static int simd_size() { return Types<T>::simd_size(); }
@@ -396,22 +393,20 @@ private:
 
 template<typename T>
 inline T* alignedAlloc(int length) {
-  return detail::pffft_aligned_malloc<T>( length * sizeof(T) );
+  return pffft_aligned_malloc<T>( length * sizeof(T) );
 }
 
 inline void alignedFree(void *ptr) {
-    detail::pffft_aligned_free(ptr);
+    pffft_aligned_free(ptr);
 }
 
 
 // simple helper to determine next power of 2 - without inexact/rounding floating point operations
 inline int nextPowerOfTwo(int N) {
-  return detail::pffft_next_power_of_two(N);
+  return std::bit_ceil(unsigned(N));
 }
 
-inline bool isPowerOfTwo(int N) {
-  return detail::pffft_is_power_of_two(N) ? true : false;
-}
+inline bool isPowerOfTwo(int N) { return std::has_single_bit(unsigned(N)); }
 
 
 
@@ -851,7 +846,7 @@ Fft<T>::forward(const T* input, Complex * spectrum)
   setup.transform_ordered(reinterpret_cast<const Scalar*>(input),
                           reinterpret_cast<Scalar*>(spectrum),
                           work,
-                          detail::PFFFT_FORWARD);
+                          PFFFT_FORWARD);
   return spectrum;
 }
 
@@ -863,7 +858,7 @@ Fft<T>::inverse(Complex const* spectrum, T* output)
   setup.transform_ordered(reinterpret_cast<const Scalar*>(spectrum),
                           reinterpret_cast<Scalar*>(output),
                           work,
-                          detail::PFFFT_BACKWARD);
+                          PFFFT_BACKWARD);
   return output;
 }
 
@@ -875,7 +870,7 @@ Fft<T>::forwardToInternalLayout(const T* input, Scalar* spectrum_internal_layout
   setup.transform(reinterpret_cast<const Scalar*>(input),
                   spectrum_internal_layout,
                   work,
-                  detail::PFFFT_FORWARD);
+                  PFFFT_FORWARD);
   return spectrum_internal_layout;
 }
 
@@ -887,7 +882,7 @@ Fft<T>::inverseFromInternalLayout(const Scalar* spectrum_internal_layout, T* out
   setup.transform(spectrum_internal_layout,
                   reinterpret_cast<Scalar*>(output),
                   work,
-                  detail::PFFFT_BACKWARD);
+                  PFFFT_BACKWARD);
   return output;
 }
 
@@ -896,7 +891,7 @@ inline void
 Fft<T>::reorderSpectrum( const Scalar* input, Complex* output )
 {
   assert(isValid());
-  setup.reorder(input, reinterpret_cast<Scalar*>(output), detail::PFFFT_FORWARD);
+  setup.reorder(input, reinterpret_cast<Scalar*>(output), PFFFT_FORWARD);
 }
 
 template<typename T>
