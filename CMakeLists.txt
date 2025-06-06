@@ -22,11 +22,6 @@ option(PFFFT_USE_DEBUG_ASAN  "use GCC's address sanitizer?" OFF)
 
 option(PFFFT_DISABLE_LINK_WITH_M "Disables linking with m library to build with clangCL from MSVC" OFF)
 
-# C90 requires the gcc extensions for function attributes like always_inline
-# C99 provides the function attributes: no gcc extensions required
-set(CMAKE_C_STANDARD 99)
-set(CMAKE_C_EXTENSIONS OFF)
-
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS ON)
@@ -322,21 +317,6 @@ if (PFFFT_USE_TYPE_DOUBLE)
   target_compile_definitions(test_pffft_cpp PRIVATE PFFFT_ENABLE_DOUBLE)
 endif()
 target_link_libraries( test_pffft_cpp  PFFFT ${STDCXXLIB} ${ASANLIB} )
-
-######################################################
-
-add_executable( test_pffft_cpp_11 test_pffft.cpp )
-target_compile_definitions(test_pffft_cpp_11 PRIVATE _USE_MATH_DEFINES)
-if (PFFFT_USE_TYPE_FLOAT)
-  target_compile_definitions(test_pffft_cpp_11 PRIVATE PFFFT_ENABLE_FLOAT)
-endif()
-if (PFFFT_USE_TYPE_DOUBLE)
-  target_compile_definitions(test_pffft_cpp_11 PRIVATE PFFFT_ENABLE_DOUBLE)
-endif()
-target_link_libraries( test_pffft_cpp_11  PFFFT ${STDCXXLIB} ${ASANLIB} )
-
-set_property(TARGET test_pffft_cpp_11 PROPERTY CXX_STANDARD 23)
-set_property(TARGET test_pffft_cpp_11 PROPERTY CXX_STANDARD_REQUIRED ON)
 
 ######################################################
 
