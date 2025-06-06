@@ -77,10 +77,12 @@
 #ifndef PFFFT_H
 #define PFFFT_H
 
-#include <stddef.h> /* for size_t */
+#include <cstddef> /* for size_t */
+#include <bit>
+#include <new>
 
-#ifdef __cplusplus
-extern "C" {
+#ifndef __cpp_aligned_new
+#error
 #endif
 
   /* opaque struct holding internal stuff (precomputed twiddle factors)
@@ -208,10 +210,12 @@ extern "C" {
   /* simple helper to determine next power of 2
      - without inexact/rounding floating point operations
   */
-  int pffft_next_power_of_two(int N);
+  inline int pffft_next_power_of_two(int N)
+  { return std::bit_ceil(unsigned(N)); }
 
   /* simple helper to determine if power of 2 - returns bool */
-  int pffft_is_power_of_two(int N);
+  inline bool pffft_is_power_of_two(int N)
+  { return std::has_single_bit(unsigned(N)); }
 
   /* simple helper to determine size N is valid
      - factorizable to pffft_min_fft_size() with factors 2, 3, 5
@@ -230,12 +234,12 @@ extern "C" {
     on intel and powerpc). This function may be used to obtain such
     correctly aligned buffers.  
   */
-  void *pffft_aligned_malloc(size_t nb_bytes);
-  void pffft_aligned_free(void *);
+  template <typename T>
+    T *pffft_aligned_malloc(size_t nb_bytes)
+    { return static_cast<T*>(operator new(nb_bytes, std::align_val_t(64))); }
 
-#ifdef __cplusplus
-}
-#endif
+  inline void pffft_aligned_free(void *ptr)
+  { operator delete(ptr, std::align_val_t(64)); }
 
 #endif /* PFFFT_H */
 

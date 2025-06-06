@@ -54,10 +54,6 @@
 #include "pffft.h"
 
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
   /* opaque struct holding internal stuff
      this struct can't be shared by many threads as it contains
      temporary data, computed within the convolution
@@ -162,10 +158,5 @@ extern "C" {
 
   /* return 4 or 1 wether support SSE/Altivec instructions was enabled when building pffft.c */
   int pffastconv_simd_size();
-
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif /* PFFASTCONV_H */

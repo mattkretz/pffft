@@ -32,9 +32,9 @@ void c_forward_real_float(const int transformLen)
   }
 
   /* allocate aligned vectors for input X and output Y */
-  float *X = (float*)pffft_aligned_malloc(transformLen * sizeof(float));
-  float *Y = (float*)pffft_aligned_malloc(transformLen * sizeof(float));  /* complex: re/im interleaved */
-  float *W = (float*)pffft_aligned_malloc(transformLen * sizeof(float));
+  float *X = pffft_aligned_malloc<float>(transformLen * sizeof(float));
+  float *Y = pffft_aligned_malloc<float>(transformLen * sizeof(float));  /* complex: re/im interleaved */
+  float *W = pffft_aligned_malloc<float>(transformLen * sizeof(float));
 
   /* prepare some input data */
   for (int k = 0; k < transformLen; k += 2)

@@ -5,10 +5,6 @@ project(PRETTY_FAST_FFT)
 option(PFFFT_USE_TYPE_FLOAT  "activate single precision 'float'?" ON)
 option(PFFFT_USE_TYPE_DOUBLE "activate 'double' precision float?" ON)
 
-# architecture/optimization options
-option(PFFFT_USE_SIMD        "use SIMD (SSE/AVX/NEON/ALTIVEC) CPU features? - " ON)
-option(PFFFT_USE_SCALAR_VECT "use 4-element vector scalar operations (if no other SIMD)" ON)
-
 # what to install?
 option(INSTALL_PFFFT      "install pffft to CMAKE_INSTALL_PREFIX?" ON)
 option(INSTALL_PFDSP      "install pfdsp to CMAKE_INSTALL_PREFIX?" OFF)
@@ -31,9 +27,20 @@ option(PFFFT_DISABLE_LINK_WITH_M "Disables linking with m library to build with 
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_EXTENSIONS OFF)
 
-set(CMAKE_CXX_STANDARD 98)
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_CXX_EXTENSIONS ON)
+
+include(FetchContent)
+FetchContent_Declare(
+  vir-simd
+  GIT_REPOSITORY https://github.com/mattkretz/vir-simd.git
+  GIT_TAG v0.4.4)
+
+FetchContent_MakeAvailable(vir-simd)
+
+add_library(vir INTERFACE)
+target_include_directories(vir INTERFACE ${vir-simd_SOURCE_DIR}/)
 
 # populate what to install
 set(INSTALL_TARGETS "")
@@ -146,11 +153,11 @@ if (MINGW)
 endif()
 
 
-set( SIMD_FLOAT_HDRS simd/pf_float.h simd/pf_sse1_float.h simd/pf_altivec_float.h simd/pf_neon_float.h simd/pf_scalar_float.h )
+set( SIMD_FLOAT_HDRS simd/pf_float.h simd/pf_sse1_float.h simd/pf_stdx_simd.h simd/pf_neon_float.h simd/pf_scalar_float.h )
 set( SIMD_DOUBLE_HDRS simd/pf_double.h simd/pf_avx_double.h simd/pf_scalar_double.h )
 
 if (PFFFT_USE_TYPE_FLOAT)
-  set( FLOAT_SOURCES pffft.c pffft.h ${SIMD_FLOAT_HDRS} )
+  set( FLOAT_SOURCES pffft.cpp pffft.h ${SIMD_FLOAT_HDRS} )
   if (INSTALL_PFFFT)
     set(INSTALL_HEADERS ${INSTALL_HEADERS} pffft.h)
   endif()
@@ -160,7 +167,7 @@ endif()
 
 
 if (PFFFT_USE_TYPE_DOUBLE)
-  set( DOUBLE_SOURCES pffft_double.c pffft_double.h ${SIMD_DOUBLE_HDRS} )
+  set( DOUBLE_SOURCES pffft_double.cpp pffft_double.h ${SIMD_DOUBLE_HDRS} )
   if (INSTALL_PFFFT)
     set(INSTALL_HEADERS ${INSTALL_HEADERS} pffft_double.h)
   endif()
@@ -170,21 +177,15 @@ endif()
 
 ######################################################
 
-add_library(PFFFT STATIC ${FLOAT_SOURCES} ${DOUBLE_SOURCES} pffft_common.c pffft_priv_impl.h pffft.hpp )
+add_library(PFFFT STATIC ${FLOAT_SOURCES} ${DOUBLE_SOURCES} pffft_priv_impl.h pffft.hpp )
 set_target_properties(PFFFT PROPERTIES OUTPUT_NAME "pffft")
 target_compile_definitions(PFFFT PRIVATE _USE_MATH_DEFINES)
 target_activate_c_compiler_warnings(PFFFT)
-if (PFFFT_USE_SCALAR_VECT)
-  target_compile_definitions(PFFFT PRIVATE PFFFT_SCALVEC_ENABLED=1)
-endif()
 if (PFFFT_USE_DEBUG_ASAN)
   target_compile_options(PFFFT PRIVATE "-fsanitize=address")
 endif()
 target_set_c_arch_flags(PFFFT)
-if (NOT PFFFT_USE_SIMD)
-  target_compile_definitions(PFFFT PRIVATE PFFFT_SIMD_DISABLE=1)
-endif()
-target_link_libraries( PFFFT ${ASANLIB} ${MATHLIB} )
+target_link_libraries( PFFFT ${ASANLIB} ${MATHLIB} vir)
 set_property(TARGET PFFFT APPEND PROPERTY INTERFACE_INCLUDE_DIRECTORIES
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
 )
@@ -197,7 +198,7 @@ endif()
 
 if (PFFFT_USE_TYPE_FLOAT)
   add_library(PFDSP STATIC pf_mixer.cpp pf_mixer.h pf_cplx.h pf_carrier.cpp pf_carrier.h pf_cic.cpp pf_cic.h fmv.h )
-  set_property(TARGET PFDSP PROPERTY CXX_STANDARD 11)
+  set_property(TARGET PFDSP PROPERTY CXX_STANDARD 23)
   set_property(TARGET PFDSP PROPERTY CXX_STANDARD_REQUIRED ON)
   set_target_properties(PFDSP PROPERTIES OUTPUT_NAME "pfdsp")
   target_compile_definitions(PFDSP PRIVATE _USE_MATH_DEFINES)
@@ -205,11 +206,7 @@ if (PFFFT_USE_TYPE_FLOAT)
   if (PFFFT_USE_DEBUG_ASAN)
       target_compile_options(PFDSP PRIVATE "-fsanitize=address")
   endif()
-  if (PFFFT_USE_SIMD)
-      target_set_cxx_arch_flags(PFDSP)
-  else()
-      target_compile_definitions(PFDSP PRIVATE PFFFT_SIMD_DISABLE=1)
-  endif()
+  target_set_cxx_arch_flags(PFDSP)
   target_link_libraries( PFDSP ${MATHLIB} )
   set_property(TARGET PFDSP APPEND PROPERTY INTERFACE_INCLUDE_DIRECTORIES
       $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
@@ -225,7 +222,7 @@ endif()
 if (PFFFT_USE_FFTPACK)
 
   # float / single precision
-  add_library(FFTPACK_FLOAT STATIC fftpack.c fftpack.h)
+  add_library(FFTPACK_FLOAT STATIC fftpack.cpp fftpack.h)
   target_compile_definitions(FFTPACK_FLOAT PRIVATE _USE_MATH_DEFINES)
   target_activate_c_compiler_warnings(FFTPACK_FLOAT)
   target_link_libraries( FFTPACK_FLOAT ${MATHLIB} )
@@ -234,7 +231,7 @@ if (PFFFT_USE_FFTPACK)
   )
 
   # double precision
-  add_library(FFTPACK_DOUBLE STATIC fftpack.c fftpack.h)
+  add_library(FFTPACK_DOUBLE STATIC fftpack.cpp fftpack.h)
   target_compile_definitions(FFTPACK_DOUBLE PRIVATE _USE_MATH_DEFINES)
   target_compile_definitions(FFTPACK_DOUBLE PUBLIC FFTPACK_DOUBLE_PRECISION)
   target_activate_c_compiler_warnings(FFTPACK_DOUBLE)
@@ -244,11 +241,11 @@ if (PFFFT_USE_FFTPACK)
   )
 
   # builtin test program of fftpack
-  add_executable(test_fftpack_float fftpack.c fftpack.h)
+  add_executable(test_fftpack_float fftpack.cpp fftpack.h)
   target_compile_definitions(test_fftpack_float PRIVATE _USE_MATH_DEFINES TESTING_FFTPACK)
   target_link_libraries(test_fftpack_float ${MATHLIB})
 
-  add_executable(test_fftpack_double fftpack.c fftpack.h)
+  add_executable(test_fftpack_double fftpack.cpp fftpack.h)
   target_compile_definitions(test_fftpack_double PRIVATE _USE_MATH_DEFINES FFTPACK_DOUBLE_PRECISION TESTING_FFTPACK)
   target_link_libraries(test_fftpack_double ${MATHLIB})
 
@@ -258,7 +255,7 @@ endif()
 
 if (PFFFT_USE_TYPE_FLOAT)
   # only 'float' supported in PFFASTCONV
-  add_library(PFFASTCONV STATIC pffastconv.c pffastconv.h pffft.h )
+  add_library(PFFASTCONV STATIC pffastconv.cpp pffastconv.h pffft.h )
   set_target_properties(PFFASTCONV PROPERTIES OUTPUT_NAME "pffastconv")
   target_compile_definitions(PFFASTCONV PRIVATE _USE_MATH_DEFINES)
   target_activate_c_compiler_warnings(PFFASTCONV)
@@ -288,7 +285,7 @@ add_custom_target(uninstall
 #######################################################
 
 if (PFFFT_USE_TYPE_FLOAT)
-  add_executable( test_pffft_float  test_pffft.c )
+  add_executable( test_pffft_float  test_pffft0.cpp )
   target_compile_definitions(test_pffft_float PRIVATE _USE_MATH_DEFINES)
   target_compile_definitions(test_pffft_float PRIVATE PFFFT_ENABLE_FLOAT)
   target_link_libraries( test_pffft_float  PFFFT ${ASANLIB} )
@@ -297,7 +294,7 @@ endif()
 ######################################################
 
 if (PFFFT_USE_TYPE_DOUBLE)
-  add_executable( test_pffft_double  test_pffft.c )
+  add_executable( test_pffft_double  test_pffft0.cpp )
   target_compile_definitions(test_pffft_double PRIVATE _USE_MATH_DEFINES)
   target_compile_definitions(test_pffft_double PRIVATE PFFFT_ENABLE_DOUBLE)
   target_link_libraries( test_pffft_double  PFFFT ${ASANLIB} )
@@ -305,7 +302,7 @@ endif()
 
 ######################################################
 
-add_executable( test_fft_factors  test_fft_factors.c )
+add_executable( test_fft_factors  test_fft_factors.cpp )
 if (PFFFT_USE_TYPE_FLOAT)
   target_compile_definitions(test_fft_factors PRIVATE PFFFT_ENABLE_FLOAT)
 endif()
@@ -338,13 +335,13 @@ if (PFFFT_USE_TYPE_DOUBLE)
 endif()
 target_link_libraries( test_pffft_cpp_11  PFFFT ${STDCXXLIB} ${ASANLIB} )
 
-set_property(TARGET test_pffft_cpp_11 PROPERTY CXX_STANDARD 11)
+set_property(TARGET test_pffft_cpp_11 PROPERTY CXX_STANDARD 23)
 set_property(TARGET test_pffft_cpp_11 PROPERTY CXX_STANDARD_REQUIRED ON)
 
 ######################################################
 
 if (PFFFT_USE_TYPE_FLOAT)
-  add_executable(test_pffastconv   test_pffastconv.c
+  add_executable(test_pffastconv   test_pffastconv.cpp
     ${SIMD_FLOAT_HDRS} ${SIMD_DOUBLE_HDRS}
   )
   target_compile_definitions(test_pffastconv PRIVATE _USE_MATH_DEFINES)
@@ -352,9 +349,6 @@ if (PFFFT_USE_TYPE_FLOAT)
     target_compile_options(test_pffastconv PRIVATE "-fsanitize=address")
   endif()
   target_set_c_arch_flags(test_pffastconv)
-  if (NOT PFFFT_USE_SIMD)
-    target_compile_definitions(test_pffastconv PRIVATE PFFFT_SIMD_DISABLE=1)
-  endif()
   target_link_libraries( test_pffastconv  PFFASTCONV ${ASANLIB} ${MATHLIB} )
 
 endif()
@@ -362,7 +356,7 @@ endif()
 ######################################################
 
 if (PFFFT_USE_TYPE_FLOAT)
-  add_executable(bench_pffft_float   bench_pffft.c pffft.h)
+  add_executable(bench_pffft_float   bench_pffft.cpp pffft.h)
   target_compile_definitions(bench_pffft_float PRIVATE _USE_MATH_DEFINES)
   target_compile_definitions(bench_pffft_float PRIVATE PFFFT_ENABLE_FLOAT)
   if (PFFFT_USE_DEBUG_ASAN)
@@ -410,7 +404,7 @@ if (PFFFT_USE_TYPE_FLOAT)
 endif()
 
 if (PFFFT_USE_TYPE_DOUBLE)
-  add_executable(bench_pffft_double   bench_pffft.c pffft.h)
+  add_executable(bench_pffft_double   bench_pffft.cpp pffft.h)
   target_compile_definitions(bench_pffft_double PRIVATE _USE_MATH_DEFINES)
   target_compile_definitions(bench_pffft_double PRIVATE PFFFT_ENABLE_DOUBLE)
   if (PFFFT_USE_DEBUG_ASAN)
@@ -468,17 +462,17 @@ if (PFFFT_USE_TYPE_FLOAT)
 
   add_library(pf_conv_arch_none pf_conv.cpp pf_conv.h pf_cplx.h)
   target_compile_definitions(pf_conv_arch_none PRIVATE CONV_ARCH_POST=none MIPP_NO_INTRINSICS=1)
-  set_property(TARGET pf_conv_arch_none PROPERTY CXX_STANDARD 11)
+  set_property(TARGET pf_conv_arch_none PROPERTY CXX_STANDARD 23)
   set_property(TARGET pf_conv_arch_none PROPERTY CXX_STANDARD_REQUIRED ON)
   target_activate_cxx_compiler_warnings(pf_conv_arch_none)
   add_library(pf_conv_dispatcher  pf_conv_dispatcher.cpp pf_conv_dispatcher.h pf_conv.h pf_cplx.h)
-  set_property(TARGET pf_conv_dispatcher PROPERTY CXX_STANDARD 11)
+  set_property(TARGET pf_conv_dispatcher PROPERTY CXX_STANDARD 23)
   set_property(TARGET pf_conv_dispatcher PROPERTY CXX_STANDARD_REQUIRED ON)
   target_activate_cxx_compiler_warnings(pf_conv_dispatcher)
 
   add_library(pf_conv_arch_dflt pf_conv.cpp pf_conv.h pf_cplx.h)
   target_compile_definitions(pf_conv_arch_dflt PRIVATE CONV_ARCH_POST=dflt)
-  set_property(TARGET pf_conv_arch_dflt PROPERTY CXX_STANDARD 11)
+  set_property(TARGET pf_conv_arch_dflt PROPERTY CXX_STANDARD 23)
   set_property(TARGET pf_conv_arch_dflt PROPERTY CXX_STANDARD_REQUIRED ON)
   target_activate_cxx_compiler_warnings(pf_conv_arch_dflt)
   target_set_cxx_arch_flags(pf_conv_arch_dflt)
@@ -540,7 +534,7 @@ if (PFFFT_USE_TYPE_FLOAT)
 
   foreach (arch_opt ${PF_CONV_ARCHES})
       add_library(pf_conv_arch_${arch_opt} pf_conv.cpp pf_conv.h pf_cplx.h)
-      set_property(TARGET pf_conv_arch_${arch_opt} PROPERTY CXX_STANDARD 11)
+      set_property(TARGET pf_conv_arch_${arch_opt} PROPERTY CXX_STANDARD 23)
       set_property(TARGET pf_conv_arch_${arch_opt} PROPERTY CXX_STANDARD_REQUIRED ON)
       target_activate_cxx_compiler_warnings(pf_conv_arch_${arch_opt})
       target_compile_definitions(pf_conv_arch_${arch_opt} PRIVATE CONV_ARCH_POST=${arch_opt})
@@ -576,7 +570,7 @@ if (PFFFT_USE_TYPE_FLOAT)
   ############################################################################
 
   add_executable(bench_pf_conv_float   bench_conv.cpp papi_perf_counter.h)
-  set_property(TARGET bench_pf_conv_float PROPERTY CXX_STANDARD 11)
+  set_property(TARGET bench_pf_conv_float PROPERTY CXX_STANDARD 23)
   set_property(TARGET bench_pf_conv_float PROPERTY CXX_STANDARD_REQUIRED ON)
   target_compile_definitions(bench_pf_conv_float PRIVATE _USE_MATH_DEFINES)
   target_compile_definitions(bench_pf_conv_float PRIVATE PFFFT_ENABLE_FLOAT)

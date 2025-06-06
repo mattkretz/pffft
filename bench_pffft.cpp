@@ -301,11 +301,11 @@ int pffft_validate_N(int N, int cplx) {
 
 
   if (!s) { printf("Skipping N=%d, not supported\n", N); return 0; }
-  ref = PFFFT_FUNC(aligned_malloc)(Nbytes);
-  in = PFFFT_FUNC(aligned_malloc)(Nbytes);
-  out = PFFFT_FUNC(aligned_malloc)(Nbytes);
-  tmp = PFFFT_FUNC(aligned_malloc)(Nbytes);
-  tmp2 = PFFFT_FUNC(aligned_malloc)(Nbytes);
+  ref = PFFFT_FUNC(aligned_malloc)<pffft_scalar>(Nbytes);
+  in = PFFFT_FUNC(aligned_malloc)<pffft_scalar>(Nbytes);
+  out = PFFFT_FUNC(aligned_malloc)<pffft_scalar>(Nbytes);
+  tmp = PFFFT_FUNC(aligned_malloc)<pffft_scalar>(Nbytes);
+  tmp2 = PFFFT_FUNC(aligned_malloc)<pffft_scalar>(Nbytes);
 
   for (pass=0; pass < 2; ++pass) {
     float ref_max = 0;
@@ -313,7 +313,7 @@ int pffft_validate_N(int N, int cplx) {
     /* printf("N=%d pass=%d cplx=%d\n", N, pass, cplx); */
     /* compute reference solution with FFTPACK */
     if (pass == 0) {
-      fftpack_real *wrk = malloc(2*Nbytes+15*sizeof(pffft_scalar));
+      fftpack_real *wrk = new fftpack_real[2*Nbytes+15];
       for (k=0; k < Nfloat; ++k) {
         ref[k] = in[k] = (float)( frand()*2-1 );
         out[k] = 1e30F;
@@ -331,7 +331,7 @@ int pffft_validate_N(int N, int cplx) {
         cffti(N, wrk);
         cfftf(N, ref, wrk);
       }
-      free(wrk);
+      delete[] wrk;
     }
 
     for (k = 0; k < Nfloat; ++k) ref_max = MAX(ref_max, (float)( fabs(ref[k]) ));
@@ -496,7 +496,9 @@ double cal_benchmark(int N, int cplx) {
   const int log2N = Log2(N);
   int Nfloat = (cplx ? N*2 : N);
   int Nbytes = Nfloat * sizeof(pffft_scalar);
-  pffft_scalar *X = PFFFT_FUNC(aligned_malloc)(Nbytes), *Y = PFFFT_FUNC(aligned_malloc)(Nbytes), *Z = PFFFT_FUNC(aligned_malloc)(Nbytes);
+  pffft_scalar *X = PFFFT_FUNC(aligned_malloc)<pffft_scalar>(Nbytes),
+               *Y = PFFFT_FUNC(aligned_malloc)<pffft_scalar>(Nbytes),
+               *Z = PFFFT_FUNC(aligned_malloc)<pffft_scalar>(Nbytes);
   double t0, t1, tstop, T, nI;
   int k, iter;
 
@@ -541,7 +543,9 @@ void benchmark_ffts(int N, int cplx, int withFFTWfullMeas, double iterCal, doubl
   int Nmax, k, iter;
   int Nbytes = Nfloat * sizeof(pffft_scalar);
 
-  pffft_scalar *X = PFFFT_FUNC(aligned_malloc)(Nbytes + sizeof(pffft_scalar)), *Y = PFFFT_FUNC(aligned_malloc)(Nbytes + 2*sizeof(pffft_scalar) ), *Z = PFFFT_FUNC(aligned_malloc)(Nbytes);
+  pffft_scalar *X = PFFFT_FUNC(aligned_malloc)<pffft_scalar>(Nbytes + sizeof(pffft_scalar)),
+               *Y = PFFFT_FUNC(aligned_malloc)<pffft_scalar>(Nbytes + 2*sizeof(pffft_scalar)),
+               *Z = PFFFT_FUNC(aligned_malloc)<pffft_scalar>(Nbytes);
   double te, t0, t1, tstop, flops, Tfastest;
 
   const double max_test_duration = 0.150;   /* test duration 150 ms */
@@ -574,7 +578,7 @@ void benchmark_ffts(int N, int cplx, int withFFTWfullMeas, double iterCal, doubl
   X[Nmax] = checkVal;
 #ifdef HAVE_FFTPACK
   {
-    fftpack_real *wrk = malloc(2*Nbytes + 15*sizeof(pffft_scalar));
+    fftpack_real *wrk = new fftpack_real[2*Nbytes + 15];
     te = uclock_sec();
     if (cplx) cffti(N, wrk);
     else      rffti(N, wrk);
@@ -601,7 +605,7 @@ void benchmark_ffts(int N, int cplx, int withFFTWfullMeas, double iterCal, doubl
       t1 = uclock_sec();
     } while ( t1 < tstop );
 
-    free(wrk);
+    delete[] wrk;
 
     flops = (max_iter*2) * ((cplx ? 5 : 2.5)*N*log((double)N)/M_LN2); /* see http://www.fftw.org/speed/method.html */
     tmeas[TYPE_ITER][ALGO_FFTPACK] = max_iter;
@@ -1362,11 +1366,7 @@ int main(int argc, char **argv) {
         if ( !(SAVE_ALL_TYPES || saveType[typeIdx]) )
           continue;
         acCsvFilename[0] = 0;
-#ifdef PFFFT_SIMD_DISABLE
-        strcat(acCsvFilename, "scal-");
-#else
         strcat(acCsvFilename, "simd-");
-#endif
         strcat(acCsvFilename, (realCplxIdx == 0 ? "real-" : "cplx-"));
         strcat(acCsvFilename, ( usePow2 ? "pow2-" : "non2-"));
         assert( strlen(acCsvFilename) + strlen(typeFilenamePart[typeIdx]) + 5 < (sizeof(acCsvFilename) / sizeof(acCsvFilename[0])) );

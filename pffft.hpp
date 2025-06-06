@@ -396,7 +396,7 @@ private:
 
 template<typename T>
 inline T* alignedAlloc(int length) {
-  return (T*)detail::pffft_aligned_malloc( length * sizeof(T) );
+  return detail::pffft_aligned_malloc<T>( length * sizeof(T) );
 }
 
 inline void alignedFree(void *ptr) {

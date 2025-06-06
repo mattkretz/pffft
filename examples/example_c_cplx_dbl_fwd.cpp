@@ -32,9 +32,9 @@ void c_forward_complex_double(const int transformLen)
   }
 
   /* allocate aligned vectors for input X and output Y */
-  double *X = (double*)pffftd_aligned_malloc(transformLen * 2 * sizeof(double));  /* complex: re/im interleaved */
-  double *Y = (double*)pffftd_aligned_malloc(transformLen * 2 * sizeof(double));  /* complex: re/im interleaved */
-  double *W = (double*)pffftd_aligned_malloc(transformLen * 2 * sizeof(double));
+  double *X = pffftd_aligned_malloc<double>(transformLen * 2 * sizeof(double));  /* complex: re/im interleaved */
+  double *Y = pffftd_aligned_malloc<double>(transformLen * 2 * sizeof(double));  /* complex: re/im interleaved */
+  double *W = pffftd_aligned_malloc<double>(transformLen * 2 * sizeof(double));
 
   /* prepare some input data */
   for (int k = 0; k < 2 * transformLen; k += 4)

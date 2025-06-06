@@ -58,6 +58,9 @@
  * it's only for library internal use
  */
 
+#include <span>
+#include <vir/simd_execution.h>
+
 
 /* define own constants required to turn off g++ extensions .. */
 #ifndef M_PI
@@ -1066,7 +1069,7 @@ SETUP_STRUCT *FUNC_NEW_SETUP(int N, pffft_transform_t transform) {
   s->transform = transform;  
   /* nb of complex simd vectors */
   s->Ncvec = (transform == PFFFT_REAL ? N/2 : N)/SIMD_SZ;
-  s->data = (v4sf*)FUNC_ALIGNED_MALLOC(2*s->Ncvec * sizeof(v4sf));
+  s->data = FUNC_ALIGNED_MALLOC<v4sf>(2*s->Ncvec * sizeof(v4sf));
   s->e = (float*)s->data;
   s->twiddle = (float*)(s->data + (2*s->Ncvec*(SIMD_SZ-1))/SIMD_SZ);  
 
@@ -1111,7 +1114,7 @@ void FUNC_DESTROY(SETUP_STRUCT *s) {
   free(s);
 }
 
-#if ( SIMD_SZ == 4 )    /* !defined(PFFFT_SIMD_DISABLE) */
+#if ( SIMD_SZ == 4 )
 
 /* [0 0 1 2 3 4 5 6 7 8] -> [0 8 7 6 5 4 3 2 1] */
 static void reversed_copy(int N, const v4sf *in, int in_stride, v4sf *out) {
@@ -1525,41 +1528,32 @@ void FUNC_TRANSFORM_INTERNAL(SETUP_STRUCT *setup, const float *finput, float *fo
 
 void FUNC_ZCONVOLVE_ACCUMULATE(SETUP_STRUCT *s, const float *a, const float *b, float *ab, float scaling) {
   int Ncvec = s->Ncvec;
-  const v4sf * RESTRICT va = (const v4sf*)a;
-  const v4sf * RESTRICT vb = (const v4sf*)b;
-  v4sf * RESTRICT vab = (v4sf*)ab;
 
 #ifdef __arm__
-  __builtin_prefetch(va);
-  __builtin_prefetch(vb);
-  __builtin_prefetch(vab);
-  __builtin_prefetch(va+2);
-  __builtin_prefetch(vb+2);
-  __builtin_prefetch(vab+2);
-  __builtin_prefetch(va+4);
-  __builtin_prefetch(vb+4);
-  __builtin_prefetch(vab+4);
-  __builtin_prefetch(va+6);
-  __builtin_prefetch(vb+6);
-  __builtin_prefetch(vab+6);
+  __builtin_prefetch(a);
+  __builtin_prefetch(b);
+  __builtin_prefetch(ab);
+  __builtin_prefetch(a+8);
+  __builtin_prefetch(b+8);
+  __builtin_prefetch(ab+8);
+  __builtin_prefetch(a+16);
+  __builtin_prefetch(b+16);
+  __builtin_prefetch(ab+16);
+  __builtin_prefetch(a+24);
+  __builtin_prefetch(b+24);
+  __builtin_prefetch(ab+24);
 # ifndef __clang__
 #   define ZCONVOLVE_USING_INLINE_NEON_ASM
 # endif
 #endif
 
-  float ar, ai, br, bi, abr, abi;
-#ifndef ZCONVOLVE_USING_INLINE_ASM
-  v4sf vscal = LD_PS1(scaling);
-  int i;
-#endif
-
   assert(VALIGNED(a) && VALIGNED(b) && VALIGNED(ab));
-  ar = ((v4sf_union*)va)[0].f[0];
-  ai = ((v4sf_union*)va)[1].f[0];
-  br = ((v4sf_union*)vb)[0].f[0];
-  bi = ((v4sf_union*)vb)[1].f[0];
-  abr = ((v4sf_union*)vab)[0].f[0];
-  abi = ((v4sf_union*)vab)[1].f[0];
+  const float ar = a[0];
+  const float ai = a[4];
+  const float br = b[0];
+  const float bi = b[4];
+  const float abr = ab[0];
+  const float abi = ab[4];
  
 #ifdef ZCONVOLVE_USING_INLINE_ASM
   /* inline asm version, unfortunately miscompiled by clang 3.2,
@@ -1601,23 +1595,31 @@ void FUNC_ZCONVOLVE_ACCUMULATE(SETUP_STRUCT *s, const float *a, const float *b, 
                : "+r"(a_), "+r"(b_), "+r"(ab_), "+r"(N) : "r"(scaling) : "r8", "q0","q1","q2","q3","q4","q5","q6","q7","q8","q9", "q10","q11","q12","q13","q15","memory");
 #else
   /* default routine, works fine for non-arm cpus with current compilers */
-  for (i=0; i < Ncvec; i += 2) {
-    v4sf ar, ai, br, bi;
-    ar = va[2*i+0]; ai = va[2*i+1];
-    br = vb[2*i+0]; bi = vb[2*i+1];
-    VCPLXMUL(ar, ai, br, bi);
-    vab[2*i+0] = VMADD(ar, vscal, vab[2*i+0]);
-    vab[2*i+1] = VMADD(ai, vscal, vab[2*i+1]);
-    ar = va[2*i+2]; ai = va[2*i+3];
-    br = vb[2*i+2]; bi = vb[2*i+3];
-    VCPLXMUL(ar, ai, br, bi);
-    vab[2*i+2] = VMADD(ar, vscal, vab[2*i+2]);
-    vab[2*i+3] = VMADD(ai, vscal, vab[2*i+3]);
-  }
+  const v4sf vscal = LD_PS1(scaling);
+  std::span<const float> sa(a, Ncvec * 8);
+  std::span<const float> sb(b, Ncvec * 8);
+  std::span<float> sab(ab, Ncvec * 8);
+  vir::transform(vir::execution::simd.prefer_size<8>().unroll_by<2>(),
+                 std::views::zip(sa, sb, sab), sab, [=](const auto& tup) {
+    const auto& [va, vb, vab] = tup;
+    if constexpr (va.size() == 8)
+      {
+        auto [ar, ai] = split<4, 4>(va);
+        auto [br, bi] = split<4, 4>(vb);
+        auto [abr, abi] = split<4, 4>(vab);
+        VCPLXMUL(ar, ai, br, bi);
+        return concat(VMADD(ar, vscal, abr), VMADD(ai, vscal, abi));
+      }
+    else
+      {
+        __builtin_trap(); // this should be impossible
+        return vab; // to get the expected return type
+      }
+  });
 #endif
   if (s->transform == PFFFT_REAL) {
-    ((v4sf_union*)vab)[0].f[0] = abr + ar*br*scaling;
-    ((v4sf_union*)vab)[1].f[0] = abi + ai*bi*scaling;
+    ab[0] = abr + ar*br*scaling;
+    ab[4] = abi + ai*bi*scaling;
   }
 }
 
@@ -1676,7 +1678,7 @@ void FUNC_ZCONVOLVE_NO_ACCU(SETUP_STRUCT *s, const float *a, const float *b, flo
 }
 
 
-#else  /* #if ( SIMD_SZ == 4 )   * !defined(PFFFT_SIMD_DISABLE) */
+#else  /* #if ( SIMD_SZ == 4 ) */
 
 /* standard routine using scalar floats, without SIMD stuff. */
 
@@ -1802,7 +1804,7 @@ void pffft_zconvolve_no_accu_nosimd(SETUP_STRUCT *s, const float *a, const float
 }
 
 
-#endif /* #if ( SIMD_SZ == 4 )    * !defined(PFFFT_SIMD_DISABLE) */
+#endif /* #if ( SIMD_SZ == 4 ) */
 
 
 void FUNC_TRANSFORM_UNORDRD(SETUP_STRUCT *setup, const float *input, float *output, float *work, pffft_direction_t direction) {

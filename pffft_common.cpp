@@ -42,7 +42,9 @@ static int is_power_of_two(int N) {
 
 
 
-void *pffft_aligned_malloc(size_t nb_bytes) { return Valigned_malloc(nb_bytes); }
+template <typename T>
+T *pffft_aligned_malloc(size_t nb_bytes) { return static_cast<T*>(Valigned_malloc(nb_bytes)); }
+
 void pffft_aligned_free(void *p) { Valigned_free(p); }
 int pffft_next_power_of_two(int N) { return next_power_of_two(N); }
 int pffft_is_power_of_two(int N) { return is_power_of_two(N); }
@@ -51,3 +53,5 @@ void *pffftd_aligned_malloc(size_t nb_bytes) { return Valigned_malloc(nb_bytes);
 void pffftd_aligned_free(void *p) { Valigned_free(p); }
 int pffftd_next_power_of_two(int N) { return next_power_of_two(N); }
 int pffftd_is_power_of_two(int N) { return is_power_of_two(N); }
+
+#error

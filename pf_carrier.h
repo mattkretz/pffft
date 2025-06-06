@@ -33,10 +33,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdio.h>
 #include <stdint.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 
 /*
    _____                      _
@@ -67,9 +63,3 @@ void generate_dc_pos_neg_fs4_s16(short* output, int size);
 
 void generate_pos_neg_fs2_s16(short* output, int size);
 void generate_dc_pos_neg_fs2_s16(short* output, int size);
-
-
-#ifdef __cplusplus
-}
-#endif
-

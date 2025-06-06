@@ -1,0 +1,90 @@
+/* SPDX-License-Identifier: LGPL-3.0-or-later */
+/* Copyright © 2025      GSI Helmholtzzentrum fuer Schwerionenforschung GmbH
+ *                       Matthias Kretz <m.kretz@gsi.de>
+ */
+
+#ifndef SIMD_PF_STDX_SIMD_DOUBLE_H_
+#define SIMD_PF_STDX_SIMD_DOUBLE_H_
+
+#include <vir/simd.h>
+
+namespace stdx = vir::stdx;
+
+using v4sf = stdx::simd<double, stdx::simd_abi::deduce_t<double, 4>>;
+
+// This is bad. All uses of v4sf_union should be refactored.
+union v4sf_union {
+  v4sf  v;
+  double f[4];
+};
+
+namespace simd2
+{
+  constexpr int size = 2;
+  using f32 = stdx::simd<float, stdx::simd_abi::deduce_t<float, size>>;
+  using f64 = stdx::simd<double, stdx::simd_abi::deduce_t<double, size>>;
+}
+
+namespace simd4
+{
+  constexpr int size = 4;
+  using f32 = stdx::simd<float, stdx::simd_abi::deduce_t<float, size>>;
+  using f64 = stdx::simd<double, stdx::simd_abi::deduce_t<double, size>>;
+}
+
+namespace simd8
+{
+  constexpr int size = 8;
+  using f32 = stdx::simd<float, stdx::simd_abi::deduce_t<float, size>>;
+  using f64 = stdx::simd<double, stdx::simd_abi::deduce_t<double, size>>;
+}
+
+template <typename T>
+  inline T
+  load_unchecked(const typename T::value_type* ptr, auto flags = stdx::element_aligned)
+  { return T(ptr, flags); }
+
+template <typename T>
+  inline void
+  store_unchecked(const T& v, typename T::value_type* ptr, auto flags = stdx::element_aligned)
+  { v.copy_to(ptr, flags); }
+
+#define SIMD_SZ 4
+
+#  define VARCH "stdx::simd"
+#  define VREQUIRES_ALIGN 1
+#  define VZERO() v4sf()
+#  define VMUL(a,b) (a * b)
+#  define VADD(a,b) (a + b)
+#  define VMADD(a,b,c) ((a * b + c))
+#  define VSUB(a,b) (a - b)
+#  define LD_PS1(p) v4sf(double(p))
+#  define VLOAD_UNALIGNED(ptr)  v4sf(ptr, stdx::element_aligned)
+#  define VLOAD_ALIGNED(ptr)    v4sf(ptr, stdx::vector_aligned)
+
+#  define INTERLEAVE2(in1, in2, out1, out2) \
+std::tie(out1, out2) = stdx::split<v4sf>(   \
+  vir::simd_permute(stdx::concat(in1, in2), \
+    [](int i) { return (i >> 1) + 4 * (i & 1); }))
+
+#  define UNINTERLEAVE2(in1, in2, out1, out2) \
+std::tie(out1, out2) = stdx::split<v4sf>(     \
+  vir::simd_permute(stdx::concat(in1, in2),   \
+    [](int i) { return (i % 4) * 2 + (i / 4); }))
+
+#  define VTRANSPOSE4(x0,x1,x2,x3) \
+std::tie(x0, x1, x2, x3) = stdx::split<v4sf>(     \
+  vir::simd_permute(stdx::concat(x0, x1, x2, x3), \
+    [](int i) { return (i % 4) * 4 + (i / 4); }))
+
+#  define VSWAPHL(a,b) \
+  vir::simd_permute<4>(stdx::concat(b, a), [](int i) { return i < 2 ? i : i + 4; })
+
+/* reverse/flip all floats */
+#  define VREV_S(a) vir::simd_permute(a, vir::simd_permutations::reverse)
+
+/* reverse/flip complex floats */
+#  define VREV_C(a) vir::simd_permute(a, vir::simd_permutations::swap_neighbors<2>)
+
+#  define VALIGNED(ptr) ((((uintptr_t)(ptr)) & 0xF) == 0)
+#endif  // SIMD_PF_STDX_SIMD_DOUBLE_H_

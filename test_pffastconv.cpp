@@ -97,7 +97,7 @@ struct ConvSetup
 
 void * convSetupRev( float * H, int N, int * BlkLen, int flags )
 {
-  struct ConvSetup * s = pffastconv_malloc( sizeof(struct ConvSetup) );
+  struct ConvSetup * s = pffastconv_malloc<ConvSetup>( sizeof(struct ConvSetup) );
   int i, Nr = N;
   if (flags & PFFASTCONV_CPLX_INP_OUT)
     Nr *= 2;
@@ -105,7 +105,7 @@ void * convSetupRev( float * H, int N, int * BlkLen, int flags )
   s->pfn = NULL;
   s->N = N;
   s->B = *BlkLen;
-  s->H = pffastconv_malloc((unsigned)Nr * sizeof(float));
+  s->H = pffastconv_malloc<float>((unsigned)Nr * sizeof(float));
   s->flags = flags;
   memset(s->H, 0, (unsigned)Nr * sizeof(float));
   if (flags & PFFASTCONV_CPLX_INP_OUT)
@@ -506,11 +506,11 @@ int test(int FILTERLEN, int convFlags, const int testOutLen, int printDbg, int p
   double aSpeedFactor[NUMY], aDuration[NUMY], procSmpPerSec[NUMY];
   int aNumIters[NUMY], aNumLoops[NUMY];
 
-  X = pffastconv_malloc( (unsigned)(len+4) * sizeof(float) );
+  X = pffastconv_malloc<float>( (unsigned)(len+4) * sizeof(float) );
   for ( i=0; i < NUMY; ++i)
   {
     if ( 1 || i < 2 )
-      Y[i] = pffastconv_malloc( (unsigned)len * sizeof(float) );
+      Y[i] = pffastconv_malloc<float>( (unsigned)len * sizeof(float) );
     else
       Y[i] = Y[1];
 
@@ -522,7 +522,7 @@ int test(int FILTERLEN, int convFlags, const int testOutLen, int printDbg, int p
     aNumLoops[i] = 0;
   }
 
-  H = pffastconv_malloc((unsigned)FILTERLEN * sizeof(float));
+  H = pffastconv_malloc<float>((unsigned)FILTERLEN * sizeof(float));
 
   /* initialize input */
   if ( convFlags & PFFASTCONV_CPLX_INP_OUT )

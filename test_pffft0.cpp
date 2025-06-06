@@ -76,17 +76,17 @@ typedef double pffft_scalar;
 int test(int N, int cplx, int useOrdered) {
   int Nfloat = (cplx ? N*2 : N);
 #ifdef PFFFT_ENABLE_FLOAT
-  pffft_scalar *X = pffft_aligned_malloc((unsigned)Nfloat * sizeof(pffft_scalar));
-  pffft_scalar *Y = pffft_aligned_malloc((unsigned)Nfloat * sizeof(pffft_scalar));
-  pffft_scalar *R = pffft_aligned_malloc((unsigned)Nfloat * sizeof(pffft_scalar));
-  pffft_scalar *Z = pffft_aligned_malloc((unsigned)Nfloat * sizeof(pffft_scalar));
-  pffft_scalar *W = pffft_aligned_malloc((unsigned)Nfloat * sizeof(pffft_scalar));
+  pffft_scalar *X = (pffft_aligned_malloc<pffft_scalar>((unsigned)Nfloat * sizeof(pffft_scalar)));
+  pffft_scalar *Y = (pffft_aligned_malloc<pffft_scalar>((unsigned)Nfloat * sizeof(pffft_scalar)));
+  pffft_scalar *R = (pffft_aligned_malloc<pffft_scalar>((unsigned)Nfloat * sizeof(pffft_scalar)));
+  pffft_scalar *Z = (pffft_aligned_malloc<pffft_scalar>((unsigned)Nfloat * sizeof(pffft_scalar)));
+  pffft_scalar *W = (pffft_aligned_malloc<pffft_scalar>((unsigned)Nfloat * sizeof(pffft_scalar)));
 #else
-  pffft_scalar *X = pffftd_aligned_malloc((unsigned)Nfloat * sizeof(pffft_scalar));
-  pffft_scalar *Y = pffftd_aligned_malloc((unsigned)Nfloat * sizeof(pffft_scalar));
-  pffft_scalar *R = pffftd_aligned_malloc((unsigned)Nfloat * sizeof(pffft_scalar));
-  pffft_scalar *Z = pffftd_aligned_malloc((unsigned)Nfloat * sizeof(pffft_scalar));
-  pffft_scalar *W = pffftd_aligned_malloc((unsigned)Nfloat * sizeof(pffft_scalar));
+  pffft_scalar *X = (pffftd_aligned_malloc<pffft_scalar>((unsigned)Nfloat * sizeof(pffft_scalar)));
+  pffft_scalar *Y = (pffftd_aligned_malloc<pffft_scalar>((unsigned)Nfloat * sizeof(pffft_scalar)));
+  pffft_scalar *R = (pffftd_aligned_malloc<pffft_scalar>((unsigned)Nfloat * sizeof(pffft_scalar)));
+  pffft_scalar *Z = (pffftd_aligned_malloc<pffft_scalar>((unsigned)Nfloat * sizeof(pffft_scalar)));
+  pffft_scalar *W = (pffftd_aligned_malloc<pffft_scalar>((unsigned)Nfloat * sizeof(pffft_scalar)));
 #endif
   pffft_scalar amp = (pffft_scalar)1.0;
   double freq, dPhi, phi, phi0;

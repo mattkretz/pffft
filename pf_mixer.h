@@ -35,10 +35,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "pf_cplx.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 
 // =================================================================================
 
@@ -262,9 +258,4 @@ typedef struct shift_recursive_osc_sse_conf_s
 void shift_recursive_osc_sse_init(float rate, float starting_phase, shift_recursive_osc_sse_conf_t *conf, shift_recursive_osc_sse_t *state);
 void shift_recursive_osc_sse_update_rate(float rate, shift_recursive_osc_sse_conf_t *conf, shift_recursive_osc_sse_t* state);
 void shift_recursive_osc_sse_inp_c(complexf* in_out, int N_cplx, const shift_recursive_osc_sse_conf_t *conf, shift_recursive_osc_sse_t* state_ext);
-
-
-#ifdef __cplusplus
-}
-#endif
 

@@ -45,10 +45,6 @@
 #ifndef FFTPACK_H
 #define FFTPACK_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /* just define FFTPACK_DOUBLE_PRECISION if you want to build it as a double precision fft */
 
 #ifndef FFTPACK_DOUBLE_PRECISION
@@ -82,10 +78,6 @@ extern "C" {
 
   void sinti(fftpack_int n, fftpack_real *wsave);
   void sint(fftpack_int n, fftpack_real *x, fftpack_real *wsave);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif /* FFTPACK_H */
 

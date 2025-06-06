@@ -24,9 +24,10 @@
 #endif
 
 
-void *pffastconv_malloc(size_t nb_bytes)
+template <typename T>
+T *pffastconv_malloc(size_t nb_bytes)
 {
-  return pffft_aligned_malloc(nb_bytes);
+  return pffft_aligned_malloc<T>(nb_bytes);
 }
 
 void pffastconv_free(void *p)
@@ -71,7 +72,7 @@ PFFASTCONV_Setup * pffastconv_new_setup( const float * filterCoeffs, int filterL
   if ( flags & PFFASTCONV_CPLX_FILTER )
     return NULL;
 
-  s = pffastconv_malloc( sizeof(struct PFFASTCONV_Setup) );
+  s = pffastconv_malloc<PFFASTCONV_Setup>( sizeof(struct PFFASTCONV_Setup) );
 
   if ( *blockLen > Nfft ) {
     Nfft = *blockLen;
@@ -84,10 +85,10 @@ PFFASTCONV_Setup * pffastconv_new_setup( const float * filterCoeffs, int filterL
   if ( (flags & PFFASTCONV_DIRECT_INP) && !(flags & PFFASTCONV_CPLX_INP_OUT) )
     s->Xt = NULL;
   else
-    s->Xt = pffastconv_malloc((unsigned)Nfft * sizeof(float));
-  s->Xf = pffastconv_malloc((unsigned)Nfft * sizeof(float));
-  s->Hf = pffastconv_malloc((unsigned)Nfft * sizeof(float));
-  s->Mf = pffastconv_malloc((unsigned)Nfft * sizeof(float));
+    s->Xt = pffastconv_malloc<float>((unsigned)Nfft * sizeof(float));
+  s->Xf = pffastconv_malloc<float>((unsigned)Nfft * sizeof(float));
+  s->Hf = pffastconv_malloc<float>((unsigned)Nfft * sizeof(float));
+  s->Mf = pffastconv_malloc<float>((unsigned)Nfft * sizeof(float));
   s->st = pffft_new_setup(Nfft, PFFFT_REAL);  /* with complex: we do 2 x fft() */
   s->filterLen = filterLen;        /* filterLen == convolution length == length of impulse response */
   if ( cplxFactor == 2 )
