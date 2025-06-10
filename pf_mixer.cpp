@@ -101,8 +101,6 @@ typedef union v4_union {
 #define VADD(a,b)                 _mm_add_ps(a,b)
 #define VSUB(a,b)                 _mm_sub_ps(a,b)
 #define LD_PS1(s)                 _mm_set1_ps(s)
-#define VLOAD_UNALIGNED(ptr)      _mm_loadu_ps((const float *)(ptr))
-#define VLOAD_ALIGNED(ptr)        _mm_load_ps((const float *)(ptr))
 #define VSTORE_UNALIGNED(ptr, v)  _mm_storeu_ps((float*)(ptr), v)
 #define VSTORE_ALIGNED(ptr, v)    _mm_store_ps((float*)(ptr), v)
 #define INTERLEAVE2(in1, in2, out1, out2) { __m128 tmp__ = _mm_unpacklo_ps(in1, in2); out2 = _mm_unpackhi_ps(in1, in2); out1 = tmp__; }

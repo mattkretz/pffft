@@ -55,14 +55,6 @@ template <typename T>
 
 #  define VARCH "stdx::simd"
 #  define VREQUIRES_ALIGN 1
-#  define VZERO() v4sf()
-#  define VMUL(a,b) (a * b)
-#  define VADD(a,b) (a + b)
-#  define VMADD(a,b,c) ((a * b + c))
-#  define VSUB(a,b) (a - b)
-#  define LD_PS1(p) v4sf(float(p))
-#  define VLOAD_UNALIGNED(ptr)  v4sf(ptr, stdx::element_aligned)
-#  define VLOAD_ALIGNED(ptr)    v4sf(ptr, stdx::vector_aligned)
 
 #  define INTERLEAVE2(in1, in2, out1, out2) \
 std::tie(out1, out2) = stdx::split<v4sf>(   \
@@ -91,11 +83,7 @@ std::tie(x0, x1, x2, x3) = stdx::split<v4sf>(     \
 #  define VALIGNED(ptr) ((((uintptr_t)(ptr)) & 0xF) == 0)
 
 /* shortcuts for complex multiplcations */
-#define VCPLXMUL(ar,ai,br,bi) { v4sf tmp; tmp=VMUL(ar,bi); ar=VMUL(ar,br); ar=VSUB(ar,VMUL(ai,bi)); ai=VMUL(ai,br); ai=VADD(ai,tmp); }
-#define VCPLXMULCONJ(ar,ai,br,bi) { v4sf tmp; tmp=VMUL(ar,bi); ar=VMUL(ar,br); ar=VADD(ar,VMUL(ai,bi)); ai=VMUL(ai,br); ai=VSUB(ai,tmp); }
-#ifndef SVMUL
-/* multiply a scalar with a vector */
-#define SVMUL(f,v) VMUL(LD_PS1(f),v)
-#endif
+#define VCPLXMUL(ar,ai,br,bi) { v4sf tmp = ar * bi; ar *= br; ar -= ai * bi; ai *= br; ai += tmp; }
+#define VCPLXMULCONJ(ar,ai,br,bi) { v4sf tmp = ar * bi; ar *= br; ar += ai * bi; ai *= br; ai -= tmp; }
 
 #endif  // PF_STDX_SIMD_H_
