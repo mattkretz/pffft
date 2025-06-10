@@ -22,6 +22,11 @@ option(PFFFT_USE_DEBUG_ASAN  "use GCC's address sanitizer?" OFF)
 
 option(PFFFT_DISABLE_LINK_WITH_M "Disables linking with m library to build with clangCL from MSVC" OFF)
 
+# C90 requires the gcc extensions for function attributes like always_inline
+# C99 provides the function attributes: no gcc extensions required
+set(CMAKE_C_STANDARD 99)
+set(CMAKE_C_EXTENSIONS OFF)
+
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS ON)
@@ -217,7 +222,7 @@ endif()
 if (PFFFT_USE_FFTPACK)
 
   # float / single precision
-  add_library(FFTPACK_FLOAT STATIC fftpack.cpp fftpack.h)
+  add_library(FFTPACK_FLOAT STATIC fftpack.c fftpack.h)
   target_compile_definitions(FFTPACK_FLOAT PRIVATE _USE_MATH_DEFINES)
   target_activate_c_compiler_warnings(FFTPACK_FLOAT)
   target_link_libraries( FFTPACK_FLOAT ${MATHLIB} )
@@ -226,7 +231,7 @@ if (PFFFT_USE_FFTPACK)
   )
 
   # double precision
-  add_library(FFTPACK_DOUBLE STATIC fftpack.cpp fftpack.h)
+  add_library(FFTPACK_DOUBLE STATIC fftpack.c fftpack.h)
   target_compile_definitions(FFTPACK_DOUBLE PRIVATE _USE_MATH_DEFINES)
   target_compile_definitions(FFTPACK_DOUBLE PUBLIC FFTPACK_DOUBLE_PRECISION)
   target_activate_c_compiler_warnings(FFTPACK_DOUBLE)
@@ -236,11 +241,11 @@ if (PFFFT_USE_FFTPACK)
   )
 
   # builtin test program of fftpack
-  add_executable(test_fftpack_float fftpack.cpp fftpack.h)
+  add_executable(test_fftpack_float fftpack.c fftpack.h)
   target_compile_definitions(test_fftpack_float PRIVATE _USE_MATH_DEFINES TESTING_FFTPACK)
   target_link_libraries(test_fftpack_float ${MATHLIB})
 
-  add_executable(test_fftpack_double fftpack.cpp fftpack.h)
+  add_executable(test_fftpack_double fftpack.c fftpack.h)
   target_compile_definitions(test_fftpack_double PRIVATE _USE_MATH_DEFINES FFTPACK_DOUBLE_PRECISION TESTING_FFTPACK)
   target_link_libraries(test_fftpack_double ${MATHLIB})
 
