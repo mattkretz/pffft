@@ -32,7 +32,7 @@
    vectors should be limited to these macros 
 */
 #if 0
-#include "simd/pf_float.h"
+#include "simd/pf_stdx_simd.h"
 #endif
 
 #if defined(_MSC_VER)

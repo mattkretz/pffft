@@ -8,6 +8,8 @@
 
 #include <vir/simd.h>
 
+using vsfscalar = double;
+
 namespace stdx = vir::stdx;
 
 using v4sf = stdx::simd<double, stdx::simd_abi::deduce_t<double, 4>>;
@@ -87,4 +89,12 @@ std::tie(x0, x1, x2, x3) = stdx::split<v4sf>(     \
 #  define VREV_C(a) vir::simd_permute(a, vir::simd_permutations::swap_neighbors<2>)
 
 #  define VALIGNED(ptr) ((((uintptr_t)(ptr)) & 0xF) == 0)
+
+/* shortcuts for complex multiplcations */
+#define VCPLXMUL(ar,ai,br,bi) { v4sf tmp; tmp=VMUL(ar,bi); ar=VMUL(ar,br); ar=VSUB(ar,VMUL(ai,bi)); ai=VMUL(ai,br); ai=VADD(ai,tmp); }
+#define VCPLXMULCONJ(ar,ai,br,bi) { v4sf tmp; tmp=VMUL(ar,bi); ar=VMUL(ar,br); ar=VADD(ar,VMUL(ai,bi)); ai=VMUL(ai,br); ai=VSUB(ai,tmp); }
+#ifndef SVMUL
+/* multiply a scalar with a vector */
+#define SVMUL(f,v) VMUL(LD_PS1(f),v)
+#endif
 #endif  // SIMD_PF_STDX_SIMD_DOUBLE_H_

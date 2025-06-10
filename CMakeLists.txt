@@ -152,9 +152,8 @@ if (MINGW)
   set(STDCXXLIB "stdc++")
 endif()
 
-
-set( SIMD_FLOAT_HDRS simd/pf_float.h simd/pf_sse1_float.h simd/pf_stdx_simd.h simd/pf_neon_float.h simd/pf_scalar_float.h )
-set( SIMD_DOUBLE_HDRS simd/pf_double.h simd/pf_avx_double.h simd/pf_scalar_double.h )
+set(SIMD_FLOAT_HDRS simd/pf_stdx_simd.h)
+set(SIMD_DOUBLE_HDRS simd/pf_stdx_simd_double.h)
 
 if (PFFFT_USE_TYPE_FLOAT)
   set( FLOAT_SOURCES pffft.cpp pffft.h ${SIMD_FLOAT_HDRS} )

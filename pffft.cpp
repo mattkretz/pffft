@@ -95,7 +95,7 @@
    SSE/Altivec/NEON -- adding support for other platforms with 4-element
    vectors should be limited to these macros 
 */
-#include "simd/pf_float.h"
+#include "simd/pf_stdx_simd.h"
 
 /* have code comparable with this definition */
 #define SETUP_STRUCT               PFFFT_Setup

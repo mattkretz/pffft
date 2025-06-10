@@ -107,7 +107,7 @@
    AVX -- adding support for other platforms with 4-element
    vectors should be limited to these macros 
 */
-#include "simd/pf_double.h"
+#include "simd/pf_stdx_simd_double.h"
 
 /* have code comparable with this definition */
 #define float double
