@@ -72,6 +72,7 @@
 #include <cstdio>
 #include <cmath>
 #include <cassert>
+#include <alloca.h>
 
 #include <span>
 #include <vir/simd_execution.h>
@@ -80,14 +81,14 @@
 #  define ALWAYS_INLINE(return_type) inline return_type __attribute__ ((always_inline))
 #  define NEVER_INLINE(return_type) return_type __attribute__ ((noinline))
 #  define RESTRICT __restrict
-#  define VLA_ARRAY_ON_STACK(type__, varname__, size__) type__ varname__[size__];
+#  define VLA_ARRAY_ON_STACK(type, varname, size) \
+  type *varname = (type*)alloca(size * sizeof(type))
 #elif defined(COMPILER_MSVC)
 #  define ALWAYS_INLINE(return_type) __forceinline return_type
 #  define NEVER_INLINE(return_type) __declspec(noinline) return_type
 #  define RESTRICT __restrict
 #  define VLA_ARRAY_ON_STACK(type__, varname__, size__) type__ *varname__ = (type__*)_alloca(size__ * sizeof(type__))
 #endif
-
 
 #ifdef COMPILER_MSVC
 #pragma warning( disable : 4244 4305 4204 4456 )
@@ -99,6 +100,7 @@
    vectors should be limited to these macros 
 */
 #include "simd/pf_stdx_simd.h"
+#include "simd/pffft_complex.h"
 
 /* have code comparable with this definition */
 #define SETUP_STRUCT               PFFFT_Setup

@@ -330,7 +330,17 @@ static NEVER_INLINE(void) radf2_ps(int ido, int l1, const v4sf * RESTRICT cc, v4
   }
   if (ido < 2) return;
   if (ido != 2) {
-    for (k=0; k < l1ido; k += ido) {
+    for (k=0; k < l1ido; k += ido)
+      {
+        /*        pffft::transform_as_complex<v4sf>(
+          ido/2 - 2,
+          cc + k + l1ido + 1,
+          cc + k + 1,
+          wa1,
+          ch + 2*k + 1,
+          ch + 2*(k + ido) - 3
+        );*/
+
       for (i=2; i<ido; i+=2) {
         v4sf tr2 = cc[i - 1 + k + l1ido], ti2 = cc[i + k + l1ido];
         v4sf br = cc[i - 1 + k], bi = cc[i + k];
@@ -1265,15 +1275,20 @@ void FUNC_CPLX_PREPROCESS(int Ncvec, const v4sf *in, v4sf *out, const v4sf *e) {
   }
 }
 
-
 static ALWAYS_INLINE(void) FUNC_REAL_FINALIZE_4X4(const v4sf *in0, const v4sf *in1, const v4sf *in,
-                            const v4sf *e, v4sf *out) {
+                            const v4sf *e, float *out) {
   v4sf r0, i0, r1, i1, r2, i2, r3, i3;
-  v4sf sr0, dr0, sr1, dr1, si0, di0, si1, di1;
   r0 = *in0; i0 = *in1;
   r1 = *in++; i1 = *in++; r2 = *in++; i2 = *in++; r3 = *in++; i3 = *in++;
   VTRANSPOSE4(r0,r1,r2,r3);
   VTRANSPOSE4(i0,i1,i2,i3);
+
+  using pffft::complex;
+
+  complex x0 {r0, i0};
+  complex x1 {r1, i1};
+  complex x2 {r2, i2};
+  complex x3 {r3, i3};
  
   /*
     transformation for each column is:
@@ -1291,49 +1306,37 @@ static ALWAYS_INLINE(void) FUNC_REAL_FINALIZE_4X4(const v4sf *in0, const v4sf *i
   /* cerr << "matrix initial, before e , REAL:\n 1: " << r0 << "\n 1: " << r1 << "\n 1: " << r2 << "\n 1: " << r3 << "\n"; */
   /* cerr << "matrix initial, before e, IMAG :\n 1: " << i0 << "\n 1: " << i1 << "\n 1: " << i2 << "\n 1: " << i3 << "\n"; */
 
-  VCPLXMUL(r1,i1,e[0],e[1]);
-  VCPLXMUL(r2,i2,e[2],e[3]);
-  VCPLXMUL(r3,i3,e[4],e[5]);
+  x1 *= complex {e[0], e[1]};
+  x2 *= complex {e[2], e[3]};
+  x3 *= complex {e[4], e[5]};
 
   /* cerr << "matrix initial, real part:\n 1: " << r0 << "\n 1: " << r1 << "\n 1: " << r2 << "\n 1: " << r3 << "\n"; */
   /* cerr << "matrix initial, imag part:\n 1: " << i0 << "\n 1: " << i1 << "\n 1: " << i2 << "\n 1: " << i3 << "\n"; */
 
-  sr0 = r0 + r2; dr0 = r0 - r2; 
-  sr1 = r1 + r3; dr1 = r3 - r1;
-  si0 = i0 + i2; di0 = i0 - i2; 
-  si1 = i1 + i3; di1 = i3 - i1;
+  complex s0 = x0 + x2;
+  complex s1 = x1 + x3;
+  complex d0 = x0 - x2;
+  complex d1 = x3 - x1;
 
-  r0 = sr0 + sr1;
-  r3 = sr0 - sr1;
-  i0 = si0 + si1;
-  i3 = si1 - si0;
-  r1 = dr0 + di1;
-  r2 = dr0 - di1;
-  i1 = dr1 - di0;
-  i2 = dr1 + di0;
+  using pffft::I;
 
-  *out++ = r0;
-  *out++ = i0;
-  *out++ = r1;
-  *out++ = i1;
-  *out++ = r2;
-  *out++ = i2;
-  *out++ = r3;
-  *out++ = i3;
-
+  out = store_unchecked(s0 + s1                , out, stdx::vector_aligned);
+  out = store_unchecked(conj(d1) * I + conj(d0), out, stdx::vector_aligned);
+  out = store_unchecked(d0 + d1 * I            , out, stdx::vector_aligned);
+  out = store_unchecked(conj(s0 - s1)          , out, stdx::vector_aligned);
 }
 
-static NEVER_INLINE(void) FUNC_REAL_FINALIZE(int Ncvec, const v4sf *in, v4sf *out, const v4sf *e) {
+static NEVER_INLINE(void) FUNC_REAL_FINALIZE(int Ncvec, const v4sf *in, float *out, const v4sf *e) {
   int k, dk = Ncvec/SIMD_SZ; /* number of 4x4 matrix blocks */
   /* fftpack order is f0r f1r f1i f2r f2i ... f(n-1)r f(n-1)i f(n)r */
 
-  v4sf_union cr, ci, *uout = (v4sf_union*)out;
   v4sf save = in[7];
   v4sf zero = {};
   float xr0, xi0, xr1, xi1, xr2, xi2, xr3, xi3;
-  static const float s = (float)M_SQRT2/2;
+  constexpr float s = M_SQRT2/2;
 
-  cr.v = in[0]; ci.v = in[Ncvec*2-1];
+  v4sf cr = in[0];
+  v4sf ci = in[Ncvec*2-1];
   assert(in != out);
   FUNC_REAL_FINALIZE_4X4(&zero, &zero, in+1, e, out);
 
@@ -1350,19 +1353,19 @@ static NEVER_INLINE(void) FUNC_REAL_FINALIZE(int Ncvec, const v4sf *in, v4sf *ou
     [Xi(3N/4)] [0   0   0   0   0  -s   1  -s]
   */
 
-  xr0=(cr.f[0]+cr.f[2]) + (cr.f[1]+cr.f[3]); uout[0].f[0] = xr0;
-  xi0=(cr.f[0]+cr.f[2]) - (cr.f[1]+cr.f[3]); uout[1].f[0] = xi0;
-  xr2=(cr.f[0]-cr.f[2]);                     uout[4].f[0] = xr2;
-  xi2=(cr.f[3]-cr.f[1]);                     uout[5].f[0] = xi2;
-  xr1= ci.f[0] + s*(ci.f[1]-ci.f[3]);        uout[2].f[0] = xr1;
-  xi1=-ci.f[2] - s*(ci.f[1]+ci.f[3]);        uout[3].f[0] = xi1;
-  xr3= ci.f[0] - s*(ci.f[1]-ci.f[3]);        uout[6].f[0] = xr3;
-  xi3= ci.f[2] - s*(ci.f[1]+ci.f[3]);        uout[7].f[0] = xi3; 
+  xr0=(cr[0]+cr[2]) + (cr[1]+cr[3]); out[0 * 4] = xr0;
+  xi0=(cr[0]+cr[2]) - (cr[1]+cr[3]); out[1 * 4] = xi0;
+  xr2=(cr[0]-cr[2]);                 out[4 * 4] = xr2;
+  xi2=(cr[3]-cr[1]);                 out[5 * 4] = xi2;
+  xr1= ci[0] + s*(ci[1]-ci[3]);      out[2 * 4] = xr1;
+  xi1=-ci[2] - s*(ci[1]+ci[3]);      out[3 * 4] = xi1;
+  xr3= ci[0] - s*(ci[1]-ci[3]);      out[6 * 4] = xr3;
+  xi3= ci[2] - s*(ci[1]+ci[3]);      out[7 * 4] = xi3; 
 
   for (k=1; k < dk; ++k) {
     v4sf save_next = in[8*k+7];
     FUNC_REAL_FINALIZE_4X4(&save, &in[8*k+0], in + 8*k+1,
-                           e + k*6, out + k*8);
+                           e + k*6, out + k*8*SIMD_SZ);
     save = save_next;
   }
 
@@ -1421,13 +1424,13 @@ static NEVER_INLINE(void) FUNC_REAL_PREPROCESS(int Ncvec, const v4sf *in, v4sf *
   int k, dk = Ncvec/SIMD_SZ; /* number of 4x4 matrix blocks */
   /* fftpack order is f0r f1r f1i f2r f2i ... f(n-1)r f(n-1)i f(n)r */
 
-  v4sf_union Xr, Xi, *uout = (v4sf_union*)out;
+  float Xr[4], Xi[4];
   float cr0, ci0, cr1, ci1, cr2, ci2, cr3, ci3;
   static const float s = (float)M_SQRT2;
   assert(in != out);
   for (k=0; k < 4; ++k) {
-    Xr.f[k] = ((float*)in)[8*k];
-    Xi.f[k] = ((float*)in)[8*k+4];
+    Xr[k] = ((float*)in)[8*k];
+    Xi[k] = ((float*)in)[8*k+4];
   }
 
   FUNC_REAL_PREPROCESS_4X4(in, e, out+1, 1); /* will write only 6 values */
@@ -1448,14 +1451,14 @@ static NEVER_INLINE(void) FUNC_REAL_PREPROCESS(int Ncvec, const v4sf *in, v4sf *
     FUNC_REAL_PREPROCESS_4X4(in+8*k, e + k*6, out-1+k*8, 0);
   }
 
-  cr0=(Xr.f[0]+Xi.f[0]) + 2*Xr.f[2]; uout[0].f[0] = cr0;
-  cr1=(Xr.f[0]-Xi.f[0]) - 2*Xi.f[2]; uout[0].f[1] = cr1;
-  cr2=(Xr.f[0]+Xi.f[0]) - 2*Xr.f[2]; uout[0].f[2] = cr2;
-  cr3=(Xr.f[0]-Xi.f[0]) + 2*Xi.f[2]; uout[0].f[3] = cr3;
-  ci0= 2*(Xr.f[1]+Xr.f[3]);                       uout[2*Ncvec-1].f[0] = ci0;
-  ci1= s*(Xr.f[1]-Xr.f[3]) - s*(Xi.f[1]+Xi.f[3]); uout[2*Ncvec-1].f[1] = ci1;
-  ci2= 2*(Xi.f[3]-Xi.f[1]);                       uout[2*Ncvec-1].f[2] = ci2;
-  ci3=-s*(Xr.f[1]-Xr.f[3]) - s*(Xi.f[1]+Xi.f[3]); uout[2*Ncvec-1].f[3] = ci3;
+  cr0=(Xr[0]+Xi[0]) + 2*Xr[2]; out[0] = cr0;
+  cr1=(Xr[0]-Xi[0]) - 2*Xi[2]; out[1] = cr1;
+  cr2=(Xr[0]+Xi[0]) - 2*Xr[2]; out[2] = cr2;
+  cr3=(Xr[0]-Xi[0]) + 2*Xi[2]; out[3] = cr3;
+  ci0= 2*(Xr[1]+Xr[3]);                   out[8*Ncvec-4+0] = ci0;
+  ci1= s*(Xr[1]-Xr[3]) - s*(Xi[1]+Xi[3]); out[8*Ncvec-4+1] = ci1;
+  ci2= 2*(Xi[3]-Xi[1]);                   out[8*Ncvec-4+2] = ci2;
+  ci3=-s*(Xr[1]-Xr[3]) - s*(Xi[1]+Xi[3]); out[8*Ncvec-4+3] = ci3;
 }
 
 
@@ -1481,7 +1484,7 @@ void FUNC_TRANSFORM_INTERNAL(SETUP_STRUCT *setup, const float *finput, float *fo
     if (setup->transform == PFFFT_REAL) { 
       ib = (rfftf1_ps(Ncvec*2, vinput, buff[ib], buff[!ib],
                       setup->twiddle, &setup->ifac[0]) == buff[0] ? 0 : 1);      
-      FUNC_REAL_FINALIZE(Ncvec, buff[ib], buff[!ib], (v4sf*)setup->e);
+      FUNC_REAL_FINALIZE(Ncvec, buff[ib], (float*)buff[!ib], (v4sf*)setup->e);
     } else {
       v4sf *tmp = buff[ib];
       for (k=0; k < Ncvec; ++k) {
@@ -1549,7 +1552,6 @@ void FUNC_ZCONVOLVE_ACCUMULATE(SETUP_STRUCT *s, const float *a, const float *b, 
 # endif
 #endif
 
-  assert(VALIGNED(a) && VALIGNED(b) && VALIGNED(ab));
   const float ar = a[0];
   const float ai = a[4];
   const float br = b[0];
@@ -1597,26 +1599,10 @@ void FUNC_ZCONVOLVE_ACCUMULATE(SETUP_STRUCT *s, const float *a, const float *b, 
                : "+r"(a_), "+r"(b_), "+r"(ab_), "+r"(N) : "r"(scaling) : "r8", "q0","q1","q2","q3","q4","q5","q6","q7","q8","q9", "q10","q11","q12","q13","q15","memory");
 #else
   /* default routine, works fine for non-arm cpus with current compilers */
-  const v4sf vscal = scaling;
-  std::span<const float> sa(a, Ncvec * 8);
-  std::span<const float> sb(b, Ncvec * 8);
-  std::span<float> sab(ab, Ncvec * 8);
-  vir::transform(vir::execution::simd.prefer_size<8>().unroll_by<2>(),
-                 std::views::zip(sa, sb, sab), sab, [=](const auto& tup) {
-    const auto& [va, vb, vab] = tup;
-    if constexpr (va.size() == 8)
-      {
-        auto [ar, ai] = split<4, 4>(va);
-        auto [br, bi] = split<4, 4>(vb);
-        auto [abr, abi] = split<4, 4>(vab);
-        VCPLXMUL(ar, ai, br, bi);
-        return concat((ar * vscal + abr), (ai * vscal + abi));
-      }
-    else
-      {
-        __builtin_trap(); // this should be impossible
-        return vab; // to get the expected return type
-      }
+  using complex_v = pffft::complex<v4sf>;
+  pffft::transform_as_complex<v4sf>(
+    Ncvec, a, b, ab, ab, [&](const complex_v& va, const complex_v& vb, const complex_v& vab) {
+    return va * vb * scaling + vab;
   });
 #endif
   if (s->transform == PFFFT_REAL) {
@@ -1626,56 +1612,39 @@ void FUNC_ZCONVOLVE_ACCUMULATE(SETUP_STRUCT *s, const float *a, const float *b, 
 }
 
 void FUNC_ZCONVOLVE_NO_ACCU(SETUP_STRUCT *s, const float *a, const float *b, float *ab, float scaling) {
-  v4sf vscal = scaling;
-  const v4sf * RESTRICT va = (const v4sf*)a;
-  const v4sf * RESTRICT vb = (const v4sf*)b;
-  v4sf * RESTRICT vab = (v4sf*)ab;
-  float sar, sai, sbr, sbi;
-  const int NcvecMulTwo = 2*s->Ncvec;  /* int Ncvec = s->Ncvec; */
-  int k; /* was i -- but always used "2*i" - except at for() */
-
 #ifdef __arm__
-  __builtin_prefetch(va);
-  __builtin_prefetch(vb);
-  __builtin_prefetch(vab);
-  __builtin_prefetch(va+2);
-  __builtin_prefetch(vb+2);
-  __builtin_prefetch(vab+2);
-  __builtin_prefetch(va+4);
-  __builtin_prefetch(vb+4);
-  __builtin_prefetch(vab+4);
-  __builtin_prefetch(va+6);
-  __builtin_prefetch(vb+6);
-  __builtin_prefetch(vab+6);
+  __builtin_prefetch(a);
+  __builtin_prefetch(b);
+  __builtin_prefetch(ab);
+  __builtin_prefetch(a+2*SIMD_SZ);
+  __builtin_prefetch(b+2*SIMD_SZ);
+  __builtin_prefetch(ab+2*SIMD_SZ);
+  __builtin_prefetch(a+4*SIMD_SZ);
+  __builtin_prefetch(b+4*SIMD_SZ);
+  __builtin_prefetch(ab+4*SIMD_SZ);
+  __builtin_prefetch(a+6*SIMD_SZ);
+  __builtin_prefetch(b+6*SIMD_SZ);
+  __builtin_prefetch(b+6*SIMD_SZ);
 # ifndef __clang__
 #   define ZCONVOLVE_USING_INLINE_NEON_ASM
 # endif
 #endif
 
-  assert(VALIGNED(a) && VALIGNED(b) && VALIGNED(ab));
-  sar = ((v4sf_union*)va)[0].f[0];
-  sai = ((v4sf_union*)va)[1].f[0];
-  sbr = ((v4sf_union*)vb)[0].f[0];
-  sbi = ((v4sf_union*)vb)[1].f[0];
+  const float sar = a[0];
+  const float sai = a[SIMD_SZ];
+  const float sbr = b[0];
+  const float sbi = b[SIMD_SZ];
 
   /* default routine, works fine for non-arm cpus with current compilers */
-  for (k=0; k < NcvecMulTwo; k += 4) {
-    v4sf var, vai, vbr, vbi;
-    var = va[k+0]; vai = va[k+1];
-    vbr = vb[k+0]; vbi = vb[k+1];
-    VCPLXMUL(var, vai, vbr, vbi);
-    vab[k+0] = var * vscal;
-    vab[k+1] = vai * vscal;
-    var = va[k+2]; vai = va[k+3];
-    vbr = vb[k+2]; vbi = vb[k+3];
-    VCPLXMUL(var, vai, vbr, vbi);
-    vab[k+2] = var * vscal;
-    vab[k+3] = vai * vscal;
-  }
+  using complex_v = pffft::complex<v4sf>;
+  pffft::transform_as_complex<v4sf>(
+    s->Ncvec, a, b, ab, [&](const complex_v& va, const complex_v& vb) {
+    return va * vb * scaling;
+  });
 
   if (s->transform == PFFFT_REAL) {
-    ((v4sf_union*)vab)[0].f[0] = sar*sbr*scaling;
-    ((v4sf_union*)vab)[1].f[0] = sai*sbi*scaling;
+    ab[0] = sar*sbr*scaling;
+    ab[SIMD_SZ] = sai*sbi*scaling;
   }
 }
 
@@ -1786,7 +1755,6 @@ void pffft_zconvolve_accumulate_nosimd(SETUP_STRUCT *s, const float *a, const fl
 #define pffft_zconvolve_no_accu_nosimd FUNC_ZCONVOLVE_NO_ACCU
 void pffft_zconvolve_no_accu_nosimd(SETUP_STRUCT *s, const float *a, const float *b,
                                     float *ab, float scaling) {
-  int NcvecMulTwo = 2*s->Ncvec;  /* int Ncvec = s->Ncvec; */
   int k; /* was i -- but always used "2*i" - except at for() */
 
   if (s->transform == PFFFT_REAL) {
@@ -1795,14 +1763,10 @@ void pffft_zconvolve_no_accu_nosimd(SETUP_STRUCT *s, const float *a, const float
     ab[NcvecMulTwo-1] += a[NcvecMulTwo-1]*b[NcvecMulTwo-1]*scaling;
     ++ab; ++a; ++b; NcvecMulTwo -= 2;
   }
-  for (k=0; k < NcvecMulTwo; k += 2) {
-    float ar, ai, br, bi;
-    ar = a[k+0]; ai = a[k+1];
-    br = b[k+0]; bi = b[k+1];
-    VCPLXMUL(ar, ai, br, bi);
-    ab[k+0] = ar*scaling;
-    ab[k+1] = ai*scaling;
-  }
+  pffft::transform_as_complex<v4sf>(
+    s->Ncvec, a, b, ab, [&](const complex_v& va, const complex_v& vb) {
+    return va * vb * scaling;
+  });
 }
 
 

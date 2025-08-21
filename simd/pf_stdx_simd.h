@@ -70,6 +70,8 @@ std::tie(out1, out2) = stdx::split<v4sf>(     \
 std::tie(x0, x1, x2, x3) = stdx::split<v4sf>(     \
   vir::simd_permute(stdx::concat(x0, x1, x2, x3), \
     [](int i) { return (i % 4) * 4 + (i / 4); }))
+// alternative:
+//_MM_TRANSPOSE4_PS(__data(x0), __data(x1), __data(x2), __data(x3))
 
 #  define VSWAPHL(a,b) \
   vir::simd_permute<4>(stdx::concat(b, a), [](int i) { return i < 2 ? i : i + 4; })
@@ -83,7 +85,20 @@ std::tie(x0, x1, x2, x3) = stdx::split<v4sf>(     \
 #  define VALIGNED(ptr) ((((uintptr_t)(ptr)) & 0xF) == 0)
 
 /* shortcuts for complex multiplcations */
-#define VCPLXMUL(ar,ai,br,bi) { v4sf tmp = ar * bi; ar *= br; ar -= ai * bi; ai *= br; ai += tmp; }
-#define VCPLXMULCONJ(ar,ai,br,bi) { v4sf tmp = ar * bi; ar *= br; ar += ai * bi; ai *= br; ai -= tmp; }
+#define VCPLXMUL(ar,ai,br,bi) { \
+  v4sf tmp = ar * bi; \
+  ar *= br; \
+  ar -= ai * bi; \
+  ai *= br; \
+  ai += tmp;\
+}
+
+#define VCPLXMULCONJ(ar,ai,br,bi) { \
+  v4sf tmp = ar * bi; \
+  ar *= br; \
+  ar += ai * bi; \
+  ai *= br; \
+  ai -= tmp; \
+}
 
 #endif  // PF_STDX_SIMD_H_
