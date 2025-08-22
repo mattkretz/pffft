@@ -79,11 +79,14 @@
 #  include <alloca.h>
 #endif
 
-#include <stdlib.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <math.h>
-#include <assert.h>
+#include <cstdlib>
+#include <cstdint>
+#include <cstdio>
+#include <cmath>
+#include <cassert>
+
+#include <span>
+#include <vir/simd_execution.h>
 
 #if defined(COMPILER_GCC)
 #  define ALWAYS_INLINE(return_type) inline return_type __attribute__ ((always_inline))

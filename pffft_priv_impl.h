@@ -58,9 +58,10 @@
  * it's only for library internal use
  */
 
-#include <span>
-#include <vir/simd_execution.h>
-
+// WARNING!
+// =============================
+// Do not #include anything from this file!
+// It is included from pffft_double.cpp after it #define's float to double!
 
 /* define own constants required to turn off g++ extensions .. */
 #ifndef M_PI
